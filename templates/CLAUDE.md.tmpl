@@ -1,0 +1,113 @@
+# Claude Code Guidelines for ${PROJECT_NAME}
+
+## Git Commit Rules
+
+- Use conventional commit format (feat, fix, refactor, docs, test, chore)
+- Do NOT leave marker comments in code or commits (e.g., "Phase 1", "FIX XX:", etc.)
+- Keep commit messages clear and descriptive
+- Ask for approval before committing — show the proposed message and wait for confirmation
+
+## Project Structure
+
+```
+${PROJECT_NAME}/
+├── CLAUDE.md                   ← this file (workspace rules)
+├── docs/
+│   ├── architecture/           ← how the system works + design decisions
+│   ├── reference/              ← knowledge base (domain, techniques, foundations)
+│   ├── guides/                 ← how to do things (setup, workflows)
+│   │   └── tools/             ← tool index (points to co-located docs)
+│   └── plans/                  ← forward-looking ideas and roadmaps
+├── lib/                         ← shared local modules
+│   └── docs/                  ← tool documentation (co-located with source)
+├── tools/                       ← standalone utilities
+│   └── doc-index.py           ← documentation index builder + query
+└── tests/
+```
+
+<!-- Customize this tree to match your actual project layout -->
+
+## Workspace Rules
+
+### Shared vs Owned Areas
+
+| Area | Ownership | Rules |
+|------|-----------|-------|
+| `docs/architecture/` | Collaborative | Any agent can contribute |
+| `docs/reference/` | Collaborative | Any agent can contribute |
+| `docs/guides/` | Collaborative | Any agent can contribute |
+| `docs/plans/` | Collaborative | Any agent can contribute |
+| `lib/docs/` | Collaborative | Tool docs co-located with source |
+| `tools/` | Open | Agents can freely add standalone utilities |
+| `lib/` | Shared modules | Coordinate changes — don't edit unilaterally |
+
+<!-- Add project-specific owned areas (experiments/, pipelines/, etc.) -->
+
+### Module Lifecycle
+
+Shared code follows a maturity lifecycle:
+
+1. **Prototype** in a workstream directory — quick and dirty, owned by one agent
+2. **Stabilise** in `lib/` — extract when useful to multiple workstreams, add tests
+3. **Graduate** to a shared package — when the module is mature and needed across repos
+
+### Scope Tags
+
+Use `scope` in YAML frontmatter so agents can discover relevant docs:
+
+```yaml
+scope: [feature-name]               # single workstream
+scope: [feature-a, feature-b]       # cross-cutting
+scope: [all]                        # foundational/shared
+```
+
+Agents can discover relevant docs with: `grep -r "scope:.*feature-name" docs/`
+
+Or use the doc index: `python tools/doc-index.py --scope feature-name`
+
+## Documentation Rules
+
+- **One topic per file** — keep docs focused and scannable
+- **Clear filenames** — descriptive kebab-case, no ambiguous abbreviations
+- **Frontmatter required** — every doc needs `title`, `scope`, `updated` (or `created`)
+- **Reasonable size** — if a doc exceeds ~200 lines, split into focused sub-docs
+- **Architecture docs** include decision rationale inline (no separate decisions/ directory)
+
+### Doc Directory Types
+
+| Directory | Purpose |
+|-----------|---------|
+| `architecture/` | How the system works and why (decisions included) |
+| `reference/` | Knowledge base: domain, techniques, foundations |
+| `guides/` | How to do things (setup, running tools, workflows) |
+| `guides/tools/` | Index of all tools with links to co-located docs |
+| `plans/` | Forward-looking ideas and roadmaps |
+
+### Tool Documentation Convention
+
+Tool docs live with the code, not in `docs/guides/`:
+
+- Hub tools (`lib/web_*.py`) → `lib/docs/{tool-name}.md`
+- Pipelines → `pipelines/{name}/docs/README.md`
+- Standalone scripts (`tools/`) → `docs/guides/{guide-name}.md` (workflow-oriented)
+- `docs/guides/tools/README.md` is the master index pointing to all of the above
+
+## Doc Index
+
+Build and query the documentation index:
+
+```bash
+# Build static index from frontmatter
+python tools/doc-index.py --build
+
+# Query by scope, tag, or status
+python tools/doc-index.py --scope feature-name --tag keyword
+
+# JSON output for piping
+python tools/doc-index.py --scope all --json
+
+# Build + query in one step
+python tools/doc-index.py --build --scope feature-name --status completed
+```
+
+The index is written to `.doc-index.json` — one Read call gets all doc metadata.
