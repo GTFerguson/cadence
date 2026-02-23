@@ -24,11 +24,11 @@ STOPWORDS = frozenset({
 
 
 def fuzzy_search(docs: list, query: str, threshold: float = 0.2,
-                 top: int = 10) -> list:
+                 top: int = 10, use_importance: bool = True) -> list:
     """Rank docs by fuzzy relevance to query across all text fields.
 
-    Searches title, tags, scopes, and description. Returns results
-    sorted by score, highest first.
+    Searches title, tags, scopes, and description. When use_importance is True,
+    blends importance into ranking: final = match * 0.7 + importance * 0.3.
     """
     query_lower = query.lower()
     query_words = query_lower.split()
@@ -82,7 +82,13 @@ def fuzzy_search(docs: list, query: str, threshold: float = 0.2,
                 best_score = max(best_score, desc_score)
 
         if best_score >= threshold:
-            scored.append({**doc, '_score': round(best_score, 3)})
+            importance = doc.get('_importance', 0.0)
+            if use_importance and importance:
+                final = best_score * 0.7 + importance * 0.3
+            else:
+                final = best_score
+            scored.append({**doc, '_score': round(final, 3),
+                           '_match': round(best_score, 3)})
 
     scored.sort(key=lambda d: d['_score'], reverse=True)
     return scored[:top]
@@ -196,8 +202,8 @@ def cosine_similarity(v1: dict, v2: dict) -> float:
 
 
 def semantic_search(query: str, tfidf_data: dict, docs: list,
-                    top: int = 10) -> list:
-    """Search using TF-IDF cosine similarity."""
+                    top: int = 10, use_importance: bool = True) -> list:
+    """Search using TF-IDF cosine similarity, blended with importance."""
     idf = tfidf_data.get('idf', {})
     vectors = tfidf_data.get('vectors', {})
 
@@ -216,7 +222,13 @@ def semantic_search(query: str, tfidf_data: dict, docs: list,
             continue
         sim = cosine_similarity(query_vec, vec)
         if sim > 0.01:
-            results.append({**doc, '_score': round(sim, 4)})
+            importance = doc.get('_importance', 0.0)
+            if use_importance and importance:
+                final = sim * 0.7 + importance * 0.3
+            else:
+                final = sim
+            results.append({**doc, '_score': round(final, 4),
+                            '_match': round(sim, 4)})
 
     results.sort(key=lambda d: d['_score'], reverse=True)
     return results[:top]

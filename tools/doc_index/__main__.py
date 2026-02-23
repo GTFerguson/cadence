@@ -26,7 +26,7 @@ from .config import load_config
 from .query import filter_docs, format_table, format_discover
 from .search import (fuzzy_search, format_search_table,
                      build_tfidf, save_tfidf, load_tfidf, semantic_search)
-from .graph import find_related, format_related_table
+from .graph import find_related, format_related_table, topological_sort
 
 
 def find_project_root() -> Path:
@@ -69,6 +69,8 @@ def main():
                         help='Max hops for --related traversal (default: 1)')
     parser.add_argument('--graph', action='store_true',
                         help='Dump full document graph as JSON')
+    parser.add_argument('--reading-order', action='store_true',
+                        help='Sort results by dependency order (read these first)')
     parser.add_argument('--json', action='store_true',
                         help='Output as JSON instead of table')
     parser.add_argument('--project-dir', type=str,
@@ -142,6 +144,9 @@ def main():
             print(format_related_table(results, args.related, docs_by_path))
         return
 
+    graph = index.get('graph', {})
+    importance = {d['path']: d.get('_importance', 0) for d in index['docs']}
+
     # Semantic search (TF-IDF)
     if args.semantic:
         tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
@@ -150,6 +155,8 @@ def main():
             print("No TF-IDF index found. Run with --build --tfidf first.", file=sys.stderr)
             sys.exit(1)
         results = semantic_search(args.semantic, tfidf_data, index['docs'], top=args.top)
+        if args.reading_order:
+            results = topological_sort(results, graph, importance)
         if args.json:
             print(json.dumps(results, indent=2))
         else:
@@ -159,6 +166,8 @@ def main():
     # Search
     if args.search:
         results = fuzzy_search(index['docs'], args.search, top=args.top)
+        if args.reading_order:
+            results = topological_sort(results, graph, importance)
         if args.json:
             print(json.dumps(results, indent=2))
         else:
@@ -168,6 +177,8 @@ def main():
     # Filter
     results = filter_docs(index['docs'],
                           scope=args.scope, tag=args.tag, status=args.status)
+    if args.reading_order:
+        results = topological_sort(results, graph, importance)
 
     if args.json:
         print(json.dumps(results, indent=2))

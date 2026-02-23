@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .parser import parse_frontmatter, strip_frontmatter, FRONTMATTER_FENCE
-from .graph import extract_links, build_graph
+from .graph import extract_links, build_graph, compute_importance
 
 
 def should_exclude(path: Path, excludes: list) -> bool:
@@ -123,10 +123,12 @@ def build_index(project_root: Path, config: dict) -> dict:
     docs = scan_docs(project_root, config)
     meta = compute_meta(docs)
     graph = build_graph(docs)
+    importance = compute_importance(docs, graph, config)
 
-    # Add resolved links to each doc, strip internal _raw_links
+    # Add resolved links and importance to each doc, strip internal _raw_links
     for doc in docs:
         doc['links'] = graph.get(doc['path'], {})
+        doc['_importance'] = importance.get(doc['path'], 0.0)
         doc.pop('_raw_links', None)
 
     index = {

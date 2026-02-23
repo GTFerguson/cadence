@@ -1,6 +1,7 @@
-"""Document graph — explicit links and implicit edges from shared metadata."""
+"""Document graph — explicit links, implicit edges, importance, reading order."""
 
 import re
+from collections import deque
 from pathlib import Path
 
 # Link patterns for body text detection
@@ -133,6 +134,143 @@ def build_graph(docs: list, exclude_scopes: set = None,
         graph[path] = edges
 
     return graph
+
+
+NUMBERED_PREFIX = re.compile(r'^\d+[-_]')
+
+
+def compute_importance(docs: list, graph: dict, config: dict = None) -> dict:
+    """Score each doc 0.0–1.0 by combining inbound links, path signals, and metadata.
+
+    Weights: inbound links 0.5, path signals 0.3, metadata 0.2.
+    Returns {path: score} dict.
+    """
+    path_weights = {}
+    if config and isinstance(config.get('path_weights'), dict):
+        path_weights = config['path_weights']
+
+    # Count inbound links per doc (weighted by edge type)
+    inbound = {d['path']: 0.0 for d in docs}
+    for path, edges in graph.items():
+        for target in edges.get('explicit', []):
+            if target in inbound:
+                inbound[target] += 3.0
+        for target in edges.get('shared_scope', []):
+            if target in inbound:
+                inbound[target] += 2.0
+        for target in edges.get('shared_tags', []):
+            if target in inbound:
+                inbound[target] += 1.0
+
+    max_inbound = max(inbound.values()) if inbound else 1.0
+    if max_inbound == 0:
+        max_inbound = 1.0
+
+    scores = {}
+    for doc in docs:
+        path = doc['path']
+        p = Path(path)
+
+        # Inbound link score (0–1)
+        link_score = inbound.get(path, 0) / max_inbound
+
+        # Path signals (0–1)
+        parts = p.parts
+        # Depth: fewer segments = more foundational
+        depth = max(len(parts) - 1, 0)  # subtract filename
+        depth_score = 1.0 / (1 + depth)
+
+        # README / index bonus
+        stem = p.stem.lower()
+        hub_bonus = 0.2 if stem in ('readme', 'index', 'overview') else 0.0
+
+        # Numbered prefix bonus (01-architecture, 02-getting-started)
+        numbered_bonus = 0.1 if NUMBERED_PREFIX.match(p.stem) else 0.0
+
+        # Config-based path weights
+        config_score = 0.0
+        for pattern, weight in path_weights.items():
+            if pattern in str(p):
+                config_score = max(config_score, float(weight))
+
+        path_score = min(depth_score + hub_bonus + numbered_bonus + config_score, 1.0)
+
+        # Metadata signals (0–1)
+        status = doc.get('status', '')
+        status_score = 0.0
+        if status in ('published', 'complete', 'implemented'):
+            status_score = 1.0
+        elif status in ('active', 'reference'):
+            status_score = 0.8
+        elif status in ('draft', 'proposed', 'planned'):
+            status_score = 0.4
+        elif status:
+            status_score = 0.2
+
+        desc_bonus = 0.3 if doc.get('description') else 0.0
+        meta_score = min(status_score * 0.7 + desc_bonus, 1.0)
+
+        # Weighted combination
+        scores[path] = round(
+            link_score * 0.5 + path_score * 0.3 + meta_score * 0.2,
+            4
+        )
+
+    return scores
+
+
+def topological_sort(docs: list, graph: dict, importance: dict) -> list:
+    """Order docs by dependency: linked-to docs come before docs that link to them.
+
+    Uses Kahn's algorithm on explicit links within the given doc subset.
+    Breaks ties by importance (higher first). Handles cycles by falling
+    back to importance ordering for cycle members.
+    """
+    paths = {d['path'] for d in docs}
+    by_path = {d['path']: d for d in docs}
+
+    # Build in-degree map and adjacency (only for docs in the subset)
+    in_degree = {p: 0 for p in paths}
+    forward = {p: [] for p in paths}  # p -> docs that p links to
+
+    for p in paths:
+        edges = graph.get(p, {})
+        for target in edges.get('explicit', []):
+            if target in paths:
+                forward[p].append(target)
+                in_degree[target] += 1
+
+    # Kahn's algorithm with importance-ordered tie-breaking
+    queue = sorted(
+        [p for p in paths if in_degree[p] == 0],
+        key=lambda p: importance.get(p, 0),
+        reverse=True
+    )
+    result = []
+
+    while queue:
+        node = queue.pop(0)
+        result.append(by_path[node])
+
+        for target in forward[node]:
+            in_degree[target] -= 1
+            if in_degree[target] == 0:
+                # Insert sorted by importance
+                inserted = False
+                for i, q in enumerate(queue):
+                    if importance.get(target, 0) > importance.get(q, 0):
+                        queue.insert(i, target)
+                        inserted = True
+                        break
+                if not inserted:
+                    queue.append(target)
+
+    # Cycle members: any docs not yet in result, sorted by importance
+    remaining = [by_path[p] for p in paths if p not in {d['path'] for d in result}]
+    remaining.sort(key=lambda d: importance.get(d['path'], 0), reverse=True)
+    result.extend(remaining)
+
+    return result
 
 
 def find_related(graph: dict, start_path: str, depth: int = 1) -> list[dict]:
