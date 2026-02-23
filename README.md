@@ -53,20 +53,24 @@ A parameterized project configuration template covering:
 - Module lifecycle (prototype → stabilise → graduate)
 - Scope tags for agent discovery
 
-### Doc Index Tool (`tools/doc_index.py`)
+### Doc Index Tool (`tools/doc_index`)
 
-Zero-dependency frontmatter indexer for documentation discovery:
+Zero-dependency frontmatter indexer with hybrid fusion search:
 
 ```bash
-# Build index from all docs
-python tools/doc-index.py --build
+# Build index (+ TF-IDF, optionally embeddings)
+python -m tools.doc_index --build
+python -m tools.doc_index --build --embeddings
 
-# Query by scope, tag, or status
-python tools/doc-index.py --scope auth --tag jwt
-python tools/doc-index.py --status draft --json
+# Hybrid fusion search — combines fuzzy + TF-IDF + embeddings via RRF
+python -m tools.doc_index --query "how does authentication work" --json
+
+# Filter by scope, tag, or status
+python -m tools.doc_index --scope auth --tag jwt
+python -m tools.doc_index --status draft --json
 ```
 
-Outputs `.doc-index.json` — a single file that gives any agent instant visibility into all project documentation.
+`--query` is the recommended search mode for agents — it automatically fuses all available retrieval signals, removing the guesswork of choosing between fuzzy and semantic search. See [Doc Index Reference](docs/guides/doc-index.md) for the full guide.
 
 ### Setup Script (`setup.sh`)
 
@@ -91,4 +95,5 @@ Safe to re-run — skips existing files, warns on conflicts.
 ## Documentation
 
 - [Getting Started Guide](docs/guides/getting-started.md) — full walkthrough
+- [Doc Index Reference](docs/guides/doc-index.md) — search modes, fusion, graph traversal, agent patterns
 - [Migration Guide](docs/guides/migration.md) — adopting in existing projects

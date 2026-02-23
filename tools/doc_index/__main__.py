@@ -29,6 +29,7 @@ from .search import (fuzzy_search, format_search_table,
 from .embeddings import (FASTEMBED_AVAILABLE, build_embeddings,
                          save_embeddings, load_embeddings, embedding_search)
 from .graph import find_related, format_related_table, topological_sort
+from .fusion import reciprocal_rank_fusion, expand_with_graph
 
 
 def find_project_root() -> Path:
@@ -67,6 +68,12 @@ def main():
                         help='(Deprecated) TF-IDF is now always built with --build')
     parser.add_argument('--embeddings', action='store_true',
                         help='Build local embeddings via FastEmbed (use with --build)')
+    parser.add_argument('--query', type=str, metavar='QUERY',
+                        help='Hybrid fusion search (combines fuzzy + TF-IDF + embeddings)')
+    parser.add_argument('--expand', action='store_true',
+                        help='Include 1-hop graph neighbors (use with --query)')
+    parser.add_argument('--rrf-k', type=int, default=60,
+                        help='RRF k constant (default: 60)')
     parser.add_argument('--related', type=str, metavar='PATH',
                         help='Show docs related to a file (graph traversal)')
     parser.add_argument('--depth', type=int, default=1,
@@ -82,8 +89,8 @@ def main():
 
     args = parser.parse_args()
 
-    has_action = (args.build or args.discover or args.search or args.semantic
-                  or args.related or args.graph)
+    has_action = (args.build or args.discover or args.query or args.search
+                  or args.semantic or args.related or args.graph)
     has_filter = args.scope or args.tag or args.status
     if not has_action and not has_filter:
         parser.print_help()
@@ -123,8 +130,9 @@ def main():
                     cached = total - embedded_count
                     print(f"Embedded {embedded_count} docs ({cached} cached) → {emb_path}")
 
-        if not has_filter and not args.discover and not args.search \
-                and not args.semantic and not args.related and not args.graph:
+        if not has_filter and not args.discover and not args.query \
+                and not args.search and not args.semantic \
+                and not args.related and not args.graph:
             return
 
     # Load index for querying
@@ -169,6 +177,57 @@ def main():
 
     graph = index.get('graph', {})
     importance = {d['path']: d.get('_importance', 0) for d in index['docs']}
+
+    # Hybrid fusion search
+    if args.query:
+        docs_by_path = {d['path']: d for d in index['docs']}
+        n_docs = len(index['docs'])
+        signal_lists = {}
+
+        # Always have fuzzy
+        fuzzy_results = fuzzy_search(index['docs'], args.query,
+                                     top=n_docs, use_importance=False)
+        if fuzzy_results:
+            signal_lists['fuzzy'] = fuzzy_results
+
+        # TF-IDF
+        tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
+        tfidf_data = load_tfidf(tfidf_path)
+        if tfidf_data:
+            tfidf_results = semantic_search(args.query, tfidf_data, index['docs'],
+                                            top=n_docs, use_importance=False)
+            if tfidf_results:
+                signal_lists['tfidf'] = tfidf_results
+
+        # Embeddings (if available)
+        emb_path = project_root / config.get('embeddings_output', '.doc-index-embeddings.json')
+        emb_data = load_embeddings(emb_path)
+        if emb_data and FASTEMBED_AVAILABLE:
+            model = config.get('embedding_model', 'BAAI/bge-small-en-v1.5')
+            emb_results = embedding_search(args.query, emb_data, index['docs'],
+                                           model_name=model, top=n_docs,
+                                           use_importance=False)
+            if emb_results:
+                signal_lists['embedding'] = emb_results
+        elif not emb_data or not FASTEMBED_AVAILABLE:
+            print("Note: embeddings not available, fusing fuzzy + TF-IDF only.",
+                  file=sys.stderr)
+
+        if not signal_lists:
+            print("No results found.", file=sys.stderr)
+            sys.exit(1)
+
+        results = reciprocal_rank_fusion(signal_lists, docs_by_path,
+                                         k=args.rrf_k, top=args.top)
+        if args.expand:
+            results = expand_with_graph(results, graph, docs_by_path)
+        if args.reading_order:
+            results = topological_sort(results, graph, importance)
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            print(format_search_table(results))
+        return
 
     # Semantic search (embeddings → TF-IDF fallback)
     if args.semantic:

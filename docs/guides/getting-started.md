@@ -115,25 +115,23 @@ This scans all directories listed in `.doc-index.yaml` and writes `.doc-index.js
 ### Querying
 
 ```bash
-# By scope
-python tools/doc-index.py --scope auth
+# Hybrid fusion search (recommended — combines all signals automatically)
+python -m tools.doc_index --query "how does authentication work" --json
 
-# By tag
-python tools/doc-index.py --tag security
-
-# By status
-python tools/doc-index.py --status draft
-
-# Combined filters
-python tools/doc-index.py --scope api --tag jwt --status published
+# Filter by scope, tag, status
+python -m tools.doc_index --scope auth
+python -m tools.doc_index --tag security
+python -m tools.doc_index --scope api --tag jwt --status published
 
 # JSON output for piping
-python tools/doc-index.py --scope all --json
+python -m tools.doc_index --scope all --json
 ```
 
 ### Agent Usage
 
-Agents can read `.doc-index.json` in a single file read to get full visibility into all project documentation — titles, scopes, tags, and statuses — without scanning the filesystem.
+Agents should default to `--query` with `--json` for search. It handles exact terms, partial names, and natural language questions through a single flag — no need to choose between fuzzy and semantic search.
+
+For the full search mode reference, signal breakdown, and advanced features (graph expansion, reading order, RRF tuning), see [Doc Index Reference](doc-index.md).
 
 ## Setup Flags Reference
 
