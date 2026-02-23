@@ -99,34 +99,27 @@ Tool docs live with the code, not in `docs/guides/`:
 
 ## Doc Index
 
-Build and query the documentation index:
+Search and query the documentation index:
 
 ```bash
-# Build the index (run after adding/changing docs)
-tools/doc-index --build
+# Hybrid fusion search (recommended) — combines fuzzy + TF-IDF + embeddings
+python -m tools.doc_index --query "authentication flow" --json
 
-# Build with TF-IDF for semantic search
-tools/doc-index --build --tfidf
+# With graph expansion — also surfaces linked/related docs
+python -m tools.doc_index --query "authentication flow" --expand --json
 
 # Discovery: see what scopes, tags, and statuses are available
-tools/doc-index --discover
+python -m tools.doc_index --discover --json
 
 # Filter by scope, tag, or status
-tools/doc-index --scope feature-name --tag keyword
-tools/doc-index --status draft --json
+python -m tools.doc_index --scope feature-name --tag keyword
+python -m tools.doc_index --status draft --json
 
-# Fuzzy search across titles, tags, scopes, descriptions
-tools/doc-index --search "authentication"
-
-# Semantic search (requires --build --tfidf first)
-tools/doc-index --semantic "login flow"
+# Build/rebuild the index (run after adding/changing docs)
+python -m tools.doc_index --build
 
 # Find related docs via graph traversal
-tools/doc-index --related docs/architecture/auth.md
-tools/doc-index --related docs/architecture/auth.md --depth 2
-
-# Dump full document graph
-tools/doc-index --graph
+python -m tools.doc_index --related docs/architecture/auth.md --depth 2
 ```
 
-The index is written to `.doc-index.json` — one Read call gets all doc metadata.
+Use `--query` for all search tasks — it automatically fuses all available signals so you don't need to choose between fuzzy and semantic search.

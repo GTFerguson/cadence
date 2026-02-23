@@ -1,14 +1,14 @@
 ---
-title: Getting Started with CADE Brain
+title: Getting Started with Cadence
 scope: [all]
 created: 2026-02-07
 status: published
 tags: [setup, guide]
 ---
 
-# Getting Started with CADE Brain
+# Getting Started with Cadence
 
-This guide walks through setting up CADE Brain in a new or existing project.
+This guide walks through setting up Cadence in a new or existing project.
 
 ## Prerequisites
 
@@ -20,12 +20,12 @@ This guide walks through setting up CADE Brain in a new or existing project.
 
 ### Option A: Git Submodule (Recommended)
 
-Adding as a submodule keeps CADE Brain updatable and version-tracked:
+Adding as a submodule keeps Cadence updatable and version-tracked:
 
 ```bash
 cd your-project
-git submodule add https://github.com/GTFerguson/cade-brain.git
-./cade-brain/setup.sh
+git submodule add https://github.com/GTFerguson/cadence.git
+./cadence/setup.sh
 ```
 
 The setup script auto-detects submodule mode and resolves paths accordingly.
@@ -35,8 +35,8 @@ The setup script auto-detects submodule mode and resolves paths accordingly.
 For trying it out or using across multiple local projects:
 
 ```bash
-git clone https://github.com/GTFerguson/cade-brain.git ~/tools/cade-brain
-~/tools/cade-brain/setup.sh --project-dir /path/to/your/project
+git clone https://github.com/GTFerguson/cadence.git ~/tools/cadence
+~/tools/cadence/setup.sh --project-dir /path/to/your/project
 ```
 
 ## What Setup Does

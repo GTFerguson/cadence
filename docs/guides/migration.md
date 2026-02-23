@@ -1,5 +1,5 @@
 ---
-title: Migrating Existing Projects to CADE Brain
+title: Migrating Existing Projects to Cadence
 scope: [all]
 created: 2026-02-07
 status: published
@@ -8,7 +8,7 @@ tags: [migration, setup]
 
 # Migration Guide
 
-How to adopt CADE Brain in a project that already has its own conventions.
+How to adopt Cadence in a project that already has its own conventions.
 
 ## Assessment
 
@@ -27,12 +27,12 @@ Before migrating, check what you already have:
 For projects that already have mature conventions (like an established CLAUDE.md and rules), the minimal migration adds just the doc-index tooling:
 
 ```bash
-git submodule add https://github.com/GTFerguson/cade-brain.git
-./cade-brain/setup.sh --yes --no-rules
+git submodule add https://github.com/GTFerguson/cadence.git
+./cadence/setup.sh --yes --no-rules
 ```
 
 This gives you:
-- `tools/doc-index.py` symlinked from cade-brain
+- `tools/doc-index.py` symlinked from cadence
 - `.doc-index.yaml` config
 - `.doc-index.json` added to `.gitignore`
 - Any missing `docs/` subdirectories created
@@ -41,18 +41,18 @@ Your existing `CLAUDE.md` and rules are untouched.
 
 ## Full Migration
 
-For projects adopting CADE Brain conventions from scratch:
+For projects adopting Cadence conventions from scratch:
 
 ```bash
-git submodule add https://github.com/GTFerguson/cade-brain.git
-./cade-brain/setup.sh
+git submodule add https://github.com/GTFerguson/cadence.git
+./cadence/setup.sh
 ```
 
 Then customize the generated `CLAUDE.md` — see the [Getting Started Guide](getting-started.md).
 
 ## Replacing Rules with Symlinks
 
-If you have rules files that originated from CADE Brain (or a predecessor project) and want to switch to symlinks for automatic updates:
+If you have rules files that originated from Cadence (or a predecessor project) and want to switch to symlinks for automatic updates:
 
 ```bash
 # Check current rules
@@ -64,11 +64,11 @@ rm ~/.claude/rules/test-driven-debugging.md
 rm ~/.claude/rules/code-comments.md
 
 # Re-run setup to create symlinks
-./cade-brain/setup.sh --no-rules  # skip if you only want to relink rules
+./cadence/setup.sh --no-rules  # skip if you only want to relink rules
 # OR manually:
-ln -s /path/to/cade-brain/rules/markdown-formatting.md ~/.claude/rules/
-ln -s /path/to/cade-brain/rules/test-driven-debugging.md ~/.claude/rules/
-ln -s /path/to/cade-brain/rules/code-comments.md ~/.claude/rules/
+ln -s /path/to/cadence/rules/markdown-formatting.md ~/.claude/rules/
+ln -s /path/to/cadence/rules/test-driven-debugging.md ~/.claude/rules/
+ln -s /path/to/cadence/rules/code-comments.md ~/.claude/rules/
 ```
 
 ## Adding Frontmatter to Existing Docs
@@ -110,14 +110,14 @@ output: .doc-index.json
 
 ## Submodule Maintenance
 
-Update CADE Brain to the latest version:
+Update Cadence to the latest version:
 
 ```bash
-cd cade-brain
+cd cadence
 git pull origin main
 cd ..
-git add cade-brain
-git commit -m "chore: update cade-brain submodule"
+git add cadence
+git commit -m "chore: update cadence submodule"
 ```
 
 Since rules and doc-index are symlinked, updates take effect immediately.

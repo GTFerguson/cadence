@@ -81,6 +81,7 @@ def build_embeddings(docs: list, project_root: Path,
 
 def save_embeddings(data: dict, output_path: Path):
     """Write embeddings sidecar file."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(data, f)
 

@@ -25,9 +25,11 @@ python -m tools.doc_index --build --embeddings --project-dir /path/to/project
 
 | Output | Contents |
 |--------|----------|
-| `.doc-index.json` | Full index with docs, graph, and metadata |
-| `.doc-index-tfidf.json` | TF-IDF vectors for semantic search |
-| `.doc-index-embeddings.json` | Dense embeddings (only with `--embeddings`) |
+| `.cade/doc-index.json` | Full index with docs, graph, and metadata |
+| `.cade/doc-index-tfidf.json` | TF-IDF vectors for semantic search |
+| `.cade/doc-index-embeddings.json` | Dense embeddings (only with `--embeddings`) |
+
+All output files are stored in `.cade/` to keep the project root clean. Add `.cade/` to `.gitignore` — these are generated artifacts.
 
 TF-IDF is always built — it's fast and uses only stdlib. Embeddings require `pip install fastembed` and provide stronger semantic matching but take longer on first build (subsequent builds cache unchanged docs).
 

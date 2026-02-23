@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ── CADE Brain Setup ───────────────────────────────────────────────────────
-# Scaffolds a project with CADE Brain conventions: docs structure,
+# ── Cadence Setup ───────────────────────────────────────────────────────
+# Scaffolds a project with Cadence conventions: docs structure,
 # CLAUDE.md template, rules symlinks, doc-index tool, and config.
 #
 # Modes:
@@ -27,7 +27,7 @@ DRY_RUN=false
 
 usage() {
     cat <<EOF
-CADE Brain Setup v${VERSION}
+Cadence Setup v${VERSION}
 
 Usage: $(basename "$0") [OPTIONS]
 
@@ -45,7 +45,7 @@ Examples:
   ./setup.sh
 
   # Submodule mode (from project root)
-  ./cade-brain/setup.sh
+  ./cadence/setup.sh
 
   # Non-interactive with explicit paths
   ./setup.sh --project-dir /path/to/project --project-name my-app --yes
@@ -99,7 +99,7 @@ elif [[ -d "$SCRIPT_DIR/../.git" && -d "$SCRIPT_DIR/.git" ]]; then
     # Submodule: script is in a git repo that's inside another git repo
     PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 elif [[ -d "$SCRIPT_DIR/.git" ]]; then
-    # We're at the cade-brain root itself — look for parent project
+    # We're at the cadence root itself — look for parent project
     parent="$(cd "$SCRIPT_DIR/.." && pwd)"
     if [[ -d "$parent/.git" ]]; then
         PROJECT_ROOT="$parent"
@@ -111,9 +111,9 @@ else
     PROJECT_ROOT="$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
 
-# Don't scaffold inside cade-brain itself unless explicitly asked
+# Don't scaffold inside cadence itself unless explicitly asked
 if [[ "$PROJECT_ROOT" == "$ADK_ROOT" && -z "$PROJECT_DIR" ]]; then
-    echo "Error: Cannot scaffold inside cade-brain itself."
+    echo "Error: Cannot scaffold inside cadence itself."
     echo "Use --project-dir to specify a target project."
     exit 1
 fi
@@ -131,7 +131,7 @@ if [[ -z "$PROJECT_NAME" ]]; then
 fi
 
 echo ""
-echo "CADE Brain Setup v${VERSION}"
+echo "Cadence Setup v${VERSION}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Project:  $PROJECT_NAME"
 echo "  Root:     $PROJECT_ROOT"
@@ -252,7 +252,7 @@ else
         log_dry "Create .doc-index.yaml"
     else
         cat > "$config_file" <<'YAML'
-# CADE Brain doc-index configuration
+# Cadence doc-index configuration
 # Directories to scan for markdown frontmatter
 scan:
   - docs/
@@ -263,8 +263,8 @@ exclude:
   - node_modules/
   - .git/
 
-# Output file for the built index
-output: .doc-index.json
+# Output paths (stored in .cade/ to keep project root clean)
+output: .cade/doc-index.json
 YAML
         log_ok "Created .doc-index.yaml"
     fi
@@ -290,9 +290,7 @@ add_to_gitignore() {
     fi
 }
 
-add_to_gitignore ".doc-index.json"
-add_to_gitignore ".doc-index-tfidf.json"
-add_to_gitignore ".doc-index-embeddings.json"
+add_to_gitignore ".cade/"
 echo ""
 
 # ── Summary ──────────────────────────────────────────────────────────────

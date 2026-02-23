@@ -176,6 +176,7 @@ def build_tfidf(docs: list, project_root: Path) -> dict:
 
 def save_tfidf(tfidf_data: dict, output_path: Path):
     """Write TF-IDF sidecar file."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(tfidf_data, f)
 

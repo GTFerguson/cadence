@@ -140,7 +140,8 @@ def build_index(project_root: Path, config: dict) -> dict:
         'graph': graph,
     }
 
-    output_path = project_root / config.get('output', '.doc-index.json')
+    output_path = project_root / config.get('output', '.cade/doc-index.json')
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w') as f:
         json.dump(index, f, indent=2)
 

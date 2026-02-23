@@ -1,16 +1,16 @@
-# CADE Brain
+# Cadence
 
-Reusable agent workflow conventions for Claude Code projects. The cognitive core that connects [CADE](https://github.com/GTFerguson/cade) (Agentic Development Environment) across projects.
+Agent workflow conventions and tools for Claude Code projects. The rules, indexing, and search that set the rhythm for effective AI-assisted development.
 
-CADE Brain provides the foundational patterns that make AI agents effective collaborators: discoverable documentation, ownership boundaries, frontmatter-based indexing, and battle-tested rules for code quality.
+Cadence provides the foundational patterns that make AI agents effective collaborators: discoverable documentation, ownership boundaries, frontmatter-based indexing with hybrid fusion search, and battle-tested rules for code quality. Works standalone with Claude Code or as the methodology layer for [CADE](https://github.com/GTFerguson/cade).
 
 ## Quick Start
 
 ### New Project
 
 ```bash
-git clone https://github.com/GTFerguson/cade-brain.git
-cd cade-brain
+git clone https://github.com/GTFerguson/cadence.git
+cd cadence
 ./setup.sh --project-dir /path/to/your/project
 ```
 
@@ -18,16 +18,16 @@ cd cade-brain
 
 ```bash
 cd your-project
-git submodule add https://github.com/GTFerguson/cade-brain.git
-./cade-brain/setup.sh
+git submodule add https://github.com/GTFerguson/cadence.git
+./cadence/setup.sh
 ```
 
 ### Existing Project (Migration)
 
 ```bash
 cd your-project
-git submodule add https://github.com/GTFerguson/cade-brain.git
-./cade-brain/setup.sh --yes --no-rules
+git submodule add https://github.com/GTFerguson/cadence.git
+./cadence/setup.sh --yes --no-rules
 ```
 
 See [Migration Guide](docs/guides/migration.md) for details on adopting in established projects.
@@ -90,7 +90,7 @@ Safe to re-run — skips existing files, warns on conflicts.
 - **Ownership prevents conflicts** — clear boundaries between shared and owned areas
 - **Frontmatter enables tooling** — structured metadata makes docs queryable
 - **Rules are universal** — coding principles that improve any codebase
-- **Zero dependencies** — drops into any Python 3.10+ project without installs
+- **Zero dependencies** — pure stdlib Python, drops into any 3.10+ project without installs
 
 ## Documentation
 
