@@ -205,27 +205,38 @@ echo ""
 
 echo "4. Doc-index tool"
 tools_dir="$PROJECT_ROOT/tools"
-doc_index_src="$ADK_ROOT/tools/doc_index.py"
-doc_index_dst="$tools_dir/doc-index.py"
+
+# Symlink the package directory and wrapper script
+doc_index_pkg_src="$ADK_ROOT/tools/doc_index"
+doc_index_pkg_dst="$tools_dir/doc_index"
+doc_index_bin_src="$ADK_ROOT/tools/doc-index"
+doc_index_bin_dst="$tools_dir/doc-index"
+
+symlink_item() {
+    local src="$1" dst="$2" label="$3"
+    if [[ -L "$dst" ]]; then
+        existing="$(readlink "$dst")"
+        if [[ "$existing" == "$src" ]]; then
+            log_skip "$label (symlink already correct)"
+        else
+            log_warn "$label exists → $existing (different source, skipping)"
+        fi
+    elif [[ -e "$dst" ]]; then
+        log_skip "$label already exists (not a symlink, skipping)"
+    else
+        ln -s "$src" "$dst"
+        log_ok "Linked $label"
+    fi
+}
 
 if [[ "$DRY_RUN" == true ]]; then
     [[ -d "$tools_dir" ]] || log_dry "mkdir -p $tools_dir"
-    log_dry "symlink $doc_index_dst → $doc_index_src"
+    log_dry "symlink $doc_index_pkg_dst → $doc_index_pkg_src"
+    log_dry "symlink $doc_index_bin_dst → $doc_index_bin_src"
 else
     mkdir -p "$tools_dir"
-    if [[ -L "$doc_index_dst" ]]; then
-        existing="$(readlink "$doc_index_dst")"
-        if [[ "$existing" == "$doc_index_src" ]]; then
-            log_skip "doc-index.py (symlink already correct)"
-        else
-            log_warn "doc-index.py exists → $existing (different source, skipping)"
-        fi
-    elif [[ -f "$doc_index_dst" ]]; then
-        log_skip "doc-index.py already exists as regular file"
-    else
-        ln -s "$doc_index_src" "$doc_index_dst"
-        log_ok "Linked doc-index.py"
-    fi
+    symlink_item "$doc_index_pkg_src" "$doc_index_pkg_dst" "doc_index/ package"
+    symlink_item "$doc_index_bin_src" "$doc_index_bin_dst" "doc-index wrapper"
 fi
 echo ""
 
@@ -280,6 +291,7 @@ add_to_gitignore() {
 }
 
 add_to_gitignore ".doc-index.json"
+add_to_gitignore ".doc-index-tfidf.json"
 echo ""
 
 # ── Summary ──────────────────────────────────────────────────────────────
@@ -293,6 +305,6 @@ else
     echo "  Next steps:"
     echo "    1. Customize CLAUDE.md with your project structure"
     echo "    2. Add frontmatter to your docs (title, scope, tags)"
-    echo "    3. Build the doc index: python tools/doc-index.py --build"
+    echo "    3. Build the doc index: tools/doc-index --build"
 fi
 echo ""

@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""
+doc-index: Build and query a frontmatter-based documentation index.
+
+Scans markdown files for YAML frontmatter, extracts metadata (title, scope,
+status, tags, dates, descriptions), and writes a static JSON index. Supports
+filtering, fuzzy search, semantic search, and document graph traversal.
+
+Zero external dependencies — uses only Python stdlib.
+
+Usage:
+    python tools/doc_index --build
+    python tools/doc_index --discover
+    python tools/doc_index --scope perspective --tag homography
+    python tools/doc_index --build --scope all --json
+    python tools/doc_index --status draft
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from .builder import build_index, load_index
+from .config import load_config
+from .query import filter_docs, format_table, format_discover
+from .search import (fuzzy_search, format_search_table,
+                     build_tfidf, save_tfidf, load_tfidf, semantic_search)
+from .graph import find_related, format_related_table
+
+
+def find_project_root() -> Path:
+    """Walk up from CWD to find a directory containing .doc-index.yaml or .git."""
+    cwd = Path.cwd()
+    for parent in [cwd, *cwd.parents]:
+        if (parent / '.doc-index.yaml').exists():
+            return parent
+        if (parent / '.git').exists():
+            return parent
+    return cwd
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Build and query a frontmatter-based documentation index.',
+        prog='doc-index',
+    )
+    parser.add_argument('--build', action='store_true',
+                        help='Scan docs and rebuild the index')
+    parser.add_argument('--discover', action='store_true',
+                        help='Show index summary: available scopes, tags, statuses')
+    parser.add_argument('--scope', type=str,
+                        help='Filter by scope (e.g., perspective, all)')
+    parser.add_argument('--tag', type=str,
+                        help='Filter by tag')
+    parser.add_argument('--status', type=str,
+                        help='Filter by status (e.g., draft, completed)')
+    parser.add_argument('--search', type=str, metavar='QUERY',
+                        help='Fuzzy search across title, tags, scope, description')
+    parser.add_argument('--top', type=int, default=10,
+                        help='Max results for search (default: 10)')
+    parser.add_argument('--semantic', type=str, metavar='QUERY',
+                        help='TF-IDF semantic search across document content')
+    parser.add_argument('--tfidf', action='store_true',
+                        help='Build TF-IDF index (use with --build)')
+    parser.add_argument('--related', type=str, metavar='PATH',
+                        help='Show docs related to a file (graph traversal)')
+    parser.add_argument('--depth', type=int, default=1,
+                        help='Max hops for --related traversal (default: 1)')
+    parser.add_argument('--graph', action='store_true',
+                        help='Dump full document graph as JSON')
+    parser.add_argument('--json', action='store_true',
+                        help='Output as JSON instead of table')
+    parser.add_argument('--project-dir', type=str,
+                        help='Project root directory (auto-detected if omitted)')
+
+    args = parser.parse_args()
+
+    has_action = (args.build or args.discover or args.search or args.semantic
+                  or args.related or args.graph)
+    has_filter = args.scope or args.tag or args.status
+    if not has_action and not has_filter:
+        parser.print_help()
+        sys.exit(1)
+
+    project_root = Path(args.project_dir).resolve() if args.project_dir else find_project_root()
+    config = load_config(project_root)
+
+    # Build
+    if args.build:
+        index = build_index(project_root, config)
+        output_path = project_root / config.get('output', '.doc-index.json')
+        print(f"Indexed {index['count']} documents → {output_path}")
+
+        if args.tfidf:
+            tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
+            tfidf_data = build_tfidf(index['docs'], project_root)
+            save_tfidf(tfidf_data, tfidf_path)
+            print(f"Built TF-IDF index → {tfidf_path}")
+
+        if not has_filter and not args.discover and not args.search \
+                and not args.semantic and not args.related and not args.graph:
+            return
+
+    # Load index for querying
+    index = load_index(project_root, config)
+    if not index:
+        print("No index found. Run with --build first.", file=sys.stderr)
+        sys.exit(1)
+
+    # Discover
+    if args.discover:
+        if args.json:
+            output = {
+                'count': index.get('count', 0),
+                'generated': index.get('generated'),
+                'meta': index.get('meta', {}),
+            }
+            print(json.dumps(output, indent=2))
+        else:
+            print(format_discover(index))
+        if not has_filter:
+            return
+
+    # Graph dump
+    if args.graph:
+        graph = index.get('graph', {})
+        print(json.dumps(graph, indent=2))
+        return
+
+    # Related docs
+    if args.related:
+        graph = index.get('graph', {})
+        if not graph:
+            print("No graph data in index. Rebuild with --build.", file=sys.stderr)
+            sys.exit(1)
+        results = find_related(graph, args.related, depth=args.depth)
+        docs_by_path = {d['path']: d for d in index['docs']}
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            print(format_related_table(results, args.related, docs_by_path))
+        return
+
+    # Semantic search (TF-IDF)
+    if args.semantic:
+        tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
+        tfidf_data = load_tfidf(tfidf_path)
+        if not tfidf_data:
+            print("No TF-IDF index found. Run with --build --tfidf first.", file=sys.stderr)
+            sys.exit(1)
+        results = semantic_search(args.semantic, tfidf_data, index['docs'], top=args.top)
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            print(format_search_table(results))
+        return
+
+    # Search
+    if args.search:
+        results = fuzzy_search(index['docs'], args.search, top=args.top)
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            print(format_search_table(results))
+        return
+
+    # Filter
+    results = filter_docs(index['docs'],
+                          scope=args.scope, tag=args.tag, status=args.status)
+
+    if args.json:
+        print(json.dumps(results, indent=2))
+    else:
+        print(format_table(results))
+
+
+if __name__ == '__main__':
+    main()

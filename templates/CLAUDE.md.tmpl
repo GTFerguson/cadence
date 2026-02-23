@@ -21,7 +21,8 @@ ${PROJECT_NAME}/
 ├── lib/                         ← shared local modules
 │   └── docs/                  ← tool documentation (co-located with source)
 ├── tools/                       ← standalone utilities
-│   └── doc-index.py           ← documentation index builder + query
+│   ├── doc-index              ← documentation index CLI
+│   └── doc_index/             ← index package (parser, search, graph)
 └── tests/
 ```
 
@@ -53,17 +54,21 @@ Shared code follows a maturity lifecycle:
 
 ### Scope Tags
 
-Use `scope` in YAML frontmatter so agents can discover relevant docs:
+Use YAML frontmatter so agents can discover relevant docs:
 
 ```yaml
-scope: [feature-name]               # single workstream
-scope: [feature-a, feature-b]       # cross-cutting
-scope: [all]                        # foundational/shared
+---
+title: Feature Design Doc
+scope: [feature-name]               # single workstream (or [all] for shared)
+status: published                   # draft, published, completed
+tags: [api, auth]                   # categorisation keywords
+description: "Short summary for agent discovery"  # optional, auto-extracted if missing
+links: [related-doc, other-guide]   # optional, explicit doc references
+created: 2026-02-07
+---
 ```
 
-Agents can discover relevant docs with: `grep -r "scope:.*feature-name" docs/`
-
-Or use the doc index: `python tools/doc-index.py --scope feature-name`
+Agents should use the doc index to find relevant docs: `tools/doc-index --discover`
 
 ## Documentation Rules
 
@@ -97,17 +102,31 @@ Tool docs live with the code, not in `docs/guides/`:
 Build and query the documentation index:
 
 ```bash
-# Build static index from frontmatter
-python tools/doc-index.py --build
+# Build the index (run after adding/changing docs)
+tools/doc-index --build
 
-# Query by scope, tag, or status
-python tools/doc-index.py --scope feature-name --tag keyword
+# Build with TF-IDF for semantic search
+tools/doc-index --build --tfidf
 
-# JSON output for piping
-python tools/doc-index.py --scope all --json
+# Discovery: see what scopes, tags, and statuses are available
+tools/doc-index --discover
 
-# Build + query in one step
-python tools/doc-index.py --build --scope feature-name --status completed
+# Filter by scope, tag, or status
+tools/doc-index --scope feature-name --tag keyword
+tools/doc-index --status draft --json
+
+# Fuzzy search across titles, tags, scopes, descriptions
+tools/doc-index --search "authentication"
+
+# Semantic search (requires --build --tfidf first)
+tools/doc-index --semantic "login flow"
+
+# Find related docs via graph traversal
+tools/doc-index --related docs/architecture/auth.md
+tools/doc-index --related docs/architecture/auth.md --depth 2
+
+# Dump full document graph
+tools/doc-index --graph
 ```
 
 The index is written to `.doc-index.json` — one Read call gets all doc metadata.
