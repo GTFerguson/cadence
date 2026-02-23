@@ -27,4 +27,4 @@ JSON results include `_signals` showing which retrieval methods contributed (fuz
 
 ## How to Know If Doc-Index Is Available
 
-Look for `.cade/doc-index.json` or `tools/doc_index/` in the project. If neither exists, the project hasn't been set up for it — skip doc-index.
+Look for `.cade/doc-index.json` or `tools/doc_index/` in the project. If neither exists, try running `python -m tools.doc_index --build` first. If that fails, the project hasn't been set up for doc-index.

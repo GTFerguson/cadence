@@ -10,9 +10,13 @@ from .graph import extract_links, build_graph, compute_importance
 
 
 def should_exclude(path: Path, excludes: list) -> bool:
-    """Check if a path matches any exclusion pattern."""
-    path_str = str(path)
-    return any(exc in path_str for exc in excludes)
+    """Check if any path component matches an exclusion pattern."""
+    parts = set(path.parts)
+    for exc in excludes:
+        dirname = exc.rstrip('/')
+        if dirname in parts:
+            return True
+    return False
 
 
 def extract_description(text: str, max_len: int = 200) -> str | None:
@@ -65,15 +69,17 @@ def compute_meta(docs: list) -> dict:
 
 
 def scan_docs(project_root: Path, config: dict) -> list:
-    """Walk configured directories and extract frontmatter from .md files."""
+    """Walk project for .md files. Uses explicit scan dirs if configured, otherwise whole project."""
     docs = []
     excludes = config.get('exclude', [])
+    scan_dirs = config.get('scan')
 
-    for scan_dir in config.get('scan', []):
-        root = project_root / scan_dir
-        if not root.exists():
-            continue
+    if scan_dirs:
+        roots = [project_root / d for d in scan_dirs if (project_root / d).exists()]
+    else:
+        roots = [project_root]
 
+    for root in roots:
         for md_path in sorted(root.rglob('*.md')):
             if should_exclude(md_path, excludes):
                 continue

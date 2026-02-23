@@ -2,9 +2,19 @@
 
 from pathlib import Path
 
+DEFAULT_EXCLUDES = [
+    '.git/', '.cade/', '.claude/', 'node_modules/',
+    '.venv/', 'venv/', '__pycache__/', '.tox/',
+    'vendor/', 'build/', 'dist/', '.next/', '.nuxt/',
+    '.svelte-kit/', '.output/', 'target/', '_site/',
+    '.bundle/', '.cargo/', '.gradle/', '.mvn/',
+    '.eggs/', '.mypy_cache/', '.pytest_cache/',
+    '.ruff_cache/', 'site-packages/',
+]
+
 DEFAULT_CONFIG = {
-    'scan': ['docs/', 'lib/docs/'],
-    'exclude': ['node_modules/', '.git/'],
+    # No 'scan' key — absent means "scan entire project"
+    'exclude': DEFAULT_EXCLUDES,
     'output': '.cade/doc-index.json',
     'tfidf_output': '.cade/doc-index-tfidf.json',
     'embeddings_output': '.cade/doc-index-embeddings.json',
