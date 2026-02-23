@@ -253,18 +253,24 @@ else
     else
         cat > "$config_file" <<'YAML'
 # Cadence doc-index configuration
-# Directories to scan for markdown frontmatter
-scan:
-  - docs/
-  - lib/docs/
+# Scans entire project for .md files by default.
+# Uncomment 'scan' to restrict to specific directories:
+# scan:
+#   - docs/
+#   - wiki/
 
 # Directories to exclude from scanning
 exclude:
   - node_modules/
   - .git/
-
-# Output paths (stored in .cade/ to keep project root clean)
-output: .cade/doc-index.json
+  - .cade/
+  - .claude/
+  - .venv/
+  - venv/
+  - vendor/
+  - build/
+  - dist/
+  - __pycache__/
 YAML
         log_ok "Created .doc-index.yaml"
     fi

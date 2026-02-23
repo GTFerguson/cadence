@@ -91,21 +91,21 @@ You can add frontmatter incrementally — the index simply skips files without i
 
 ## Updating the Doc-Index Config
 
-If your docs live in non-standard directories, edit `.doc-index.yaml`:
+By default, the scanner finds all `.md` files in the project, excluding common noise directories. To customise, edit `.doc-index.yaml`:
 
 ```yaml
+# Restrict scanning to specific directories (default: entire project)
 scan:
   - docs/
-  - lib/docs/
-  - wiki/           # add custom directories
-  - src/docs/
+  - wiki/
 
+# Directories to exclude from scanning
 exclude:
   - node_modules/
   - .git/
-  - vendor/          # add custom exclusions
-
-output: .doc-index.json
+  - .cade/
+  - .claude/
+  - vendor/
 ```
 
 ## Submodule Maintenance
