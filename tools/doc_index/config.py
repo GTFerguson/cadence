@@ -7,6 +7,8 @@ DEFAULT_CONFIG = {
     'exclude': ['node_modules/', '.git/'],
     'output': '.doc-index.json',
     'tfidf_output': '.doc-index-tfidf.json',
+    'embeddings_output': '.doc-index-embeddings.json',
+    'embedding_model': 'BAAI/bge-small-en-v1.5',
 }
 
 

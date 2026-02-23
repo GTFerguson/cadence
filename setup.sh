@@ -292,6 +292,7 @@ add_to_gitignore() {
 
 add_to_gitignore ".doc-index.json"
 add_to_gitignore ".doc-index-tfidf.json"
+add_to_gitignore ".doc-index-embeddings.json"
 echo ""
 
 # ── Summary ──────────────────────────────────────────────────────────────

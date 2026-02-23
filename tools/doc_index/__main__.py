@@ -26,6 +26,8 @@ from .config import load_config
 from .query import filter_docs, format_table, format_discover
 from .search import (fuzzy_search, format_search_table,
                      build_tfidf, save_tfidf, load_tfidf, semantic_search)
+from .embeddings import (FASTEMBED_AVAILABLE, build_embeddings,
+                         save_embeddings, load_embeddings, embedding_search)
 from .graph import find_related, format_related_table, topological_sort
 
 
@@ -60,9 +62,11 @@ def main():
     parser.add_argument('--top', type=int, default=10,
                         help='Max results for search (default: 10)')
     parser.add_argument('--semantic', type=str, metavar='QUERY',
-                        help='TF-IDF semantic search across document content')
+                        help='Semantic search (embeddings if available, TF-IDF fallback)')
     parser.add_argument('--tfidf', action='store_true',
-                        help='Build TF-IDF index (use with --build)')
+                        help='(Deprecated) TF-IDF is now always built with --build')
+    parser.add_argument('--embeddings', action='store_true',
+                        help='Build local embeddings via FastEmbed (use with --build)')
     parser.add_argument('--related', type=str, metavar='PATH',
                         help='Show docs related to a file (graph traversal)')
     parser.add_argument('--depth', type=int, default=1,
@@ -94,11 +98,30 @@ def main():
         output_path = project_root / config.get('output', '.doc-index.json')
         print(f"Indexed {index['count']} documents → {output_path}")
 
-        if args.tfidf:
-            tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
-            tfidf_data = build_tfidf(index['docs'], project_root)
-            save_tfidf(tfidf_data, tfidf_path)
-            print(f"Built TF-IDF index → {tfidf_path}")
+        # Always build TF-IDF (fast, no dependencies)
+        tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
+        tfidf_data = build_tfidf(index['docs'], project_root)
+        save_tfidf(tfidf_data, tfidf_path)
+        print(f"Built TF-IDF index → {tfidf_path}")
+
+        # Optionally build embeddings (requires fastembed)
+        if args.embeddings:
+            if not FASTEMBED_AVAILABLE:
+                print("fastembed not installed — skipping embeddings.", file=sys.stderr)
+                print("Install with: pip install fastembed", file=sys.stderr)
+            else:
+                emb_path = project_root / config.get('embeddings_output', '.doc-index-embeddings.json')
+                model = config.get('embedding_model', 'BAAI/bge-small-en-v1.5')
+                existing = load_embeddings(emb_path)
+                emb_data, embedded_count = build_embeddings(
+                    index['docs'], project_root, model_name=model, existing=existing)
+                save_embeddings(emb_data, emb_path)
+                total = len(emb_data)
+                if embedded_count == 0:
+                    print(f"Embeddings up to date ({total} docs) → {emb_path}")
+                else:
+                    cached = total - embedded_count
+                    print(f"Embedded {embedded_count} docs ({cached} cached) → {emb_path}")
 
         if not has_filter and not args.discover and not args.search \
                 and not args.semantic and not args.related and not args.graph:
@@ -147,14 +170,25 @@ def main():
     graph = index.get('graph', {})
     importance = {d['path']: d.get('_importance', 0) for d in index['docs']}
 
-    # Semantic search (TF-IDF)
+    # Semantic search (embeddings → TF-IDF fallback)
     if args.semantic:
-        tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
-        tfidf_data = load_tfidf(tfidf_path)
-        if not tfidf_data:
-            print("No TF-IDF index found. Run with --build --tfidf first.", file=sys.stderr)
-            sys.exit(1)
-        results = semantic_search(args.semantic, tfidf_data, index['docs'], top=args.top)
+        emb_path = project_root / config.get('embeddings_output', '.doc-index-embeddings.json')
+        emb_data = load_embeddings(emb_path)
+
+        if emb_data and FASTEMBED_AVAILABLE:
+            model = config.get('embedding_model', 'BAAI/bge-small-en-v1.5')
+            results = embedding_search(args.semantic, emb_data, index['docs'],
+                                       model_name=model, top=args.top)
+        else:
+            if emb_data and not FASTEMBED_AVAILABLE:
+                print("Note: fastembed not installed, falling back to TF-IDF.", file=sys.stderr)
+            tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
+            tfidf_data = load_tfidf(tfidf_path)
+            if not tfidf_data:
+                print("No search index found. Run with --build first.", file=sys.stderr)
+                sys.exit(1)
+            results = semantic_search(args.semantic, tfidf_data, index['docs'], top=args.top)
+
         if args.reading_order:
             results = topological_sort(results, graph, importance)
         if args.json:
