@@ -135,7 +135,7 @@ def build_tfidf(docs: list, project_root: Path) -> dict:
     """
     corpus = []
     for doc in docs:
-        parts = [doc.get('title', ''), doc.get('description', '')]
+        parts = [doc.get('title') or '', doc.get('description') or '']
         parts.extend(doc.get('tags') or [])
         parts.extend(doc.get('scope') or [])
 
