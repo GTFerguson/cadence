@@ -20,7 +20,7 @@ except ImportError:
 
 def _doc_text(doc: dict, project_root: Path) -> str:
     """Combine doc metadata + body into a single string for embedding."""
-    parts = [doc.get('title', ''), doc.get('description', '')]
+    parts = [doc.get('title') or '', doc.get('description') or '']
     parts.extend(doc.get('tags') or [])
     parts.extend(doc.get('scope') or [])
 
