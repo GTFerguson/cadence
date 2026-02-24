@@ -139,11 +139,15 @@ def main():
                 and not args.related and not args.graph and not args.context:
             return
 
-    # Load index for querying
+    # Load index for querying — auto-build if missing
     index = load_index(project_root, config)
     if not index:
-        print("No index found. Run with --build first.", file=sys.stderr)
-        sys.exit(1)
+        print("No index found, building...", file=sys.stderr)
+        index = build_index(project_root, config)
+        tfidf_path = project_root / config.get('tfidf_output', '.cade/doc-index-tfidf.json')
+        tfidf_data = build_tfidf(index['docs'], project_root)
+        save_tfidf(tfidf_data, tfidf_path)
+        print(f"Indexed {index['count']} documents, {len(index.get('code_map', {}))} code files mapped.", file=sys.stderr)
 
     # Discover
     if args.discover:
