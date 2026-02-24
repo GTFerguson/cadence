@@ -85,12 +85,20 @@ def main():
                         help='Dump full document graph as JSON')
     parser.add_argument('--reading-order', action='store_true',
                         help='Sort results by dependency order (read these first)')
-    parser.add_argument('--json', action='store_true',
-                        help='Output as JSON instead of table')
+    parser.add_argument('--json', action='store_true', default=None,
+                        help='Output as JSON (default when stdout is not a terminal)')
+    parser.add_argument('--table', action='store_true',
+                        help='Force table output even when piped')
     parser.add_argument('--project-dir', type=str,
                         help='Project root directory (auto-detected if omitted)')
 
     args = parser.parse_args()
+
+    # Default to JSON when not in a terminal (agent/pipe), tables when interactive
+    if args.table:
+        args.json = False
+    elif args.json is None:
+        args.json = not sys.stdout.isatty()
 
     has_action = (args.build or args.discover or args.query or args.search
                   or args.semantic or args.related or args.graph or args.context)

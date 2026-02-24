@@ -6,13 +6,13 @@ When working in a project with a doc-index, use it to find relevant documentatio
 
 ```bash
 # Find docs relevant to a code file
-python -m tools.doc_index --context path/to/file.py --json
+python -m tools.doc_index --context path/to/file.py
 
 # Search docs by concept or keyword
-python -m tools.doc_index --query "authentication flow" --json
+python -m tools.doc_index --query "authentication flow"
 
 # See what's indexed
-python -m tools.doc_index --discover --json
+python -m tools.doc_index --discover
 ```
 
 ## When to Use

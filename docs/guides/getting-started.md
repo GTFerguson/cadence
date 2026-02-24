@@ -129,7 +129,7 @@ python -m tools.doc_index --scope all --json
 
 ### Agent Usage
 
-Agents should default to `--query` with `--json` for search. It handles exact terms, partial names, and natural language questions through a single flag — no need to choose between fuzzy and semantic search.
+Agents get JSON output automatically (stdout is piped/non-TTY). Use `--query` for search — it handles exact terms, partial names, and natural language questions through a single flag.
 
 For the full search mode reference, signal breakdown, and advanced features (graph expansion, reading order, RRF tuning), see [Doc Index Reference](doc-index.md).
 

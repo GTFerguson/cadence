@@ -179,14 +179,15 @@ python -m tools.doc_index --query "genetics system" --reading-order
 | `--graph` | Dump full document graph as JSON |
 | `--reading-order` | Sort results by dependency order |
 | `--top INT` | Max results (default: 10) |
-| `--json` | Output as JSON instead of table |
+| `--json` | Output as JSON (default when piped/non-TTY) |
+| `--table` | Force table output even when piped |
 | `--project-dir PATH` | Project root (auto-detected if omitted) |
 
 ## Agent Integration Patterns
 
 ### Recommended: `--query` for All Search
 
-Agents should default to `--query` with `--json` for search tasks. It handles every query shape — exact terms, partial names, natural language questions — without needing to choose a search mode:
+Agents get JSON output automatically (non-TTY detection). Use `--query` for all search tasks — it handles every query shape (exact terms, partial names, natural language questions) without needing to choose a search mode:
 
 ```bash
 # Agent doesn't need to decide: is this a keyword or a concept?
