@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .parser import parse_frontmatter, strip_frontmatter, FRONTMATTER_FENCE
 from .graph import extract_links, build_graph, compute_importance
+from .code_map import build_code_map
 
 
 def should_exclude(path: Path, excludes: list) -> bool:
@@ -130,6 +131,7 @@ def build_index(project_root: Path, config: dict) -> dict:
     meta = compute_meta(docs)
     graph = build_graph(docs)
     importance = compute_importance(docs, graph, config)
+    code_map = build_code_map(docs, project_root, config)
 
     # Add resolved links and importance to each doc, strip internal _raw_links
     for doc in docs:
@@ -138,12 +140,13 @@ def build_index(project_root: Path, config: dict) -> dict:
         doc.pop('_raw_links', None)
 
     index = {
-        'version': 2,
+        'version': 3,
         'generated': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
         'count': len(docs),
         'meta': meta,
         'docs': docs,
         'graph': graph,
+        'code_map': code_map,
     }
 
     output_path = project_root / config.get('output', '.cade/doc-index.json')

@@ -30,6 +30,7 @@ from .embeddings import (FASTEMBED_AVAILABLE, build_embeddings,
                          save_embeddings, load_embeddings, embedding_search)
 from .graph import find_related, format_related_table, topological_sort
 from .fusion import reciprocal_rank_fusion, expand_with_graph
+from .code_map import context_search
 
 
 def find_project_root() -> Path:
@@ -74,6 +75,8 @@ def main():
                         help='Include 1-hop graph neighbors (use with --query)')
     parser.add_argument('--rrf-k', type=int, default=60,
                         help='RRF k constant (default: 60)')
+    parser.add_argument('--context', type=str, metavar='PATH',
+                        help='Find docs relevant to a code file (reverse code-to-doc map)')
     parser.add_argument('--related', type=str, metavar='PATH',
                         help='Show docs related to a file (graph traversal)')
     parser.add_argument('--depth', type=int, default=1,
@@ -90,7 +93,7 @@ def main():
     args = parser.parse_args()
 
     has_action = (args.build or args.discover or args.query or args.search
-                  or args.semantic or args.related or args.graph)
+                  or args.semantic or args.related or args.graph or args.context)
     has_filter = args.scope or args.tag or args.status
     if not has_action and not has_filter:
         parser.print_help()
@@ -103,7 +106,8 @@ def main():
     if args.build:
         index = build_index(project_root, config)
         output_path = project_root / config.get('output', '.doc-index.json')
-        print(f"Indexed {index['count']} documents → {output_path}")
+        code_map_size = len(index.get('code_map', {}))
+        print(f"Indexed {index['count']} documents, {code_map_size} code files mapped → {output_path}")
 
         # Always build TF-IDF (fast, no dependencies)
         tfidf_path = project_root / config.get('tfidf_output', '.doc-index-tfidf.json')
@@ -132,7 +136,7 @@ def main():
 
         if not has_filter and not args.discover and not args.query \
                 and not args.search and not args.semantic \
-                and not args.related and not args.graph:
+                and not args.related and not args.graph and not args.context:
             return
 
     # Load index for querying
@@ -159,6 +163,23 @@ def main():
     if args.graph:
         graph = index.get('graph', {})
         print(json.dumps(graph, indent=2))
+        return
+
+    # Context: docs relevant to a code file
+    if args.context:
+        code_map = index.get('code_map', {})
+        if not code_map:
+            print("No code map in index. Rebuild with --build.", file=sys.stderr)
+            sys.exit(1)
+        docs_by_path = {d['path']: d for d in index['docs']}
+        results = context_search(args.context, code_map, docs_by_path, top=args.top)
+        if not results:
+            print(f"No docs found referencing {args.context}", file=sys.stderr)
+            sys.exit(0)
+        if args.json:
+            print(json.dumps(results, indent=2))
+        else:
+            print(format_search_table(results))
         return
 
     # Related docs
