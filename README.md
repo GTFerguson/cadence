@@ -1,20 +1,12 @@
 # Cadence
 
-Agent workflow conventions and tools for Claude Code projects. The rules, indexing, and search that set the rhythm for effective AI-assisted development.
+Documentation indexing and hybrid search for AI-assisted development. Cadence scans your project's markdown files, builds a searchable index with frontmatter metadata, and gives agents the tools to find the right docs before writing code.
 
-Cadence provides the foundational patterns that make AI agents effective collaborators: discoverable documentation, ownership boundaries, frontmatter-based indexing with hybrid fusion search, and battle-tested rules for code quality. Works standalone with Claude Code or as the methodology layer for [CADE](https://github.com/GTFerguson/cade).
+Zero external dependencies. Pure stdlib Python 3.10+. Optional local embeddings via FastEmbed.
+
+Works standalone with Claude Code or as the methodology layer for [CADE](https://github.com/GTFerguson/cade).
 
 ## Quick Start
-
-### New Project
-
-```bash
-git clone https://github.com/GTFerguson/cadence.git
-cd cadence
-./setup.sh --project-dir /path/to/your/project
-```
-
-### As a Git Submodule
 
 ```bash
 cd your-project
@@ -22,59 +14,183 @@ git submodule add https://github.com/GTFerguson/cadence.git
 ./cadence/setup.sh
 ```
 
-### Existing Project (Migration)
+Build and search immediately:
 
 ```bash
-cd your-project
-git submodule add https://github.com/GTFerguson/cadence.git
-./cadence/setup.sh --yes --no-rules
+python -m tools.doc_index --build
+python -m tools.doc_index --query "how does authentication work"
 ```
 
-See [Migration Guide](docs/guides/migration.md) for details on adopting in established projects.
+No config file needed. The scanner walks your entire project for `.md` files, skipping `.git/`, `node_modules/`, `build/`, and 20+ other noise directories automatically.
 
-## What You Get
+## Doc Index
 
-### Rules (`rules/`)
+### Building
 
-Claude Code rules that install to `~/.claude/rules/` and apply across all projects:
+```bash
+# Scan all markdown, extract frontmatter, build TF-IDF vectors
+python -m tools.doc_index --build
+
+# Also build local embeddings (requires: pip install fastembed)
+python -m tools.doc_index --build --embeddings
+```
+
+Produces three files in `.cade/`:
+- `doc-index.json` — full index with metadata, document graph, and code-to-doc mapping
+- `doc-index-tfidf.json` — sparse TF-IDF vectors for semantic search
+- `doc-index-embeddings.json` — dense vectors via BAAI/bge-small-en-v1.5 (optional)
+
+### Hybrid Fusion Search
+
+`--query` is the recommended search mode. It fuses all available retrieval signals via Reciprocal Rank Fusion (RRF) and returns ranked results:
+
+```bash
+python -m tools.doc_index --query "creature genetics system"
+```
+
+What happens under the hood:
+1. **Fuzzy search** — SequenceMatcher on title, tags, scope, description
+2. **TF-IDF search** — cosine similarity on sparse term vectors
+3. **Embedding search** — cosine similarity on dense vectors (if built)
+4. **RRF fusion** — combines per-signal rankings into a single score
+5. **Importance blending** — weights results by document graph importance
+
+If embeddings aren't built, fusion gracefully degrades to fuzzy + TF-IDF. Results include per-signal score breakdowns:
+
+```json
+{
+  "path": "docs/auth.md",
+  "title": "Authentication Guide",
+  "_score": 0.82,
+  "_signals": {"fuzzy": 0.95, "tfidf": 0.67, "embedding": 0.81}
+}
+```
+
+### Code-to-Doc Mapping
+
+Find documentation relevant to any code file:
+
+```bash
+python -m tools.doc_index --context src/auth.py
+```
+
+The indexer scans doc bodies for code references — markdown links, backtick paths, `@see` annotations, bare file paths — and builds a reverse mapping from code files to the docs that discuss them. References are resolved against actual project files with confidence scoring based on match type (exact path vs. filename) and reference type (markdown link vs. inline mention).
+
+### Document Graph
+
+Docs are automatically connected via three edge types:
+- **Explicit links** — frontmatter `links:` field, `[[wiki-links]]`, `[text](path.md)`
+- **Shared scope** — docs in the same scope (e.g., `scope: [backend]`)
+- **Shared tags** — docs sharing 2+ tags
+
+Graph features:
+
+```bash
+# Find related docs via BFS traversal
+python -m tools.doc_index --related docs/design/architecture.md --depth 2
+
+# Expand search results with 1-hop graph neighbors
+python -m tools.doc_index --query "authentication" --expand
+
+# Sort results by topological dependency (prerequisites first)
+python -m tools.doc_index --query "getting started" --reading-order
+
+# Dump the full adjacency graph
+python -m tools.doc_index --graph
+```
+
+### Importance Scoring
+
+Every document gets an importance score (0.0-1.0) that influences search ranking. It's a weighted combination of:
+
+- **Inbound links (50%)** — how many other docs reference this one
+- **Path signals (30%)** — depth in directory tree, hub bonuses for README/index files
+- **Metadata (20%)** — status (`published` > `draft`), presence of description
+
+### Filtering
+
+```bash
+python -m tools.doc_index --scope backend --tag security
+python -m tools.doc_index --status draft
+python -m tools.doc_index --discover   # list all scopes, tags, statuses
+```
+
+### Frontmatter
+
+Cadence reads standard YAML frontmatter without requiring PyYAML:
+
+```markdown
+---
+title: Authentication Guide
+scope: [backend, api]
+tags: [auth, security, jwt]
+status: published
+description: How the auth system works.
+links: [docs/api/tokens.md]
+---
+```
+
+All fields are optional. Missing titles default to the filename. Missing descriptions are auto-extracted from the first paragraph.
+
+### CLI Reference
+
+| Flag | Description |
+|------|-------------|
+| `--build` | Build index + TF-IDF vectors |
+| `--embeddings` | Also build dense embeddings (with `--build`) |
+| `--query TERM` | Hybrid fusion search (recommended) |
+| `--search TERM` | Fuzzy search only |
+| `--semantic TERM` | Embedding search with TF-IDF fallback |
+| `--context PATH` | Find docs for a code file |
+| `--related PATH` | BFS graph traversal from a doc |
+| `--discover` | Show index summary and available metadata |
+| `--graph` | Dump full document graph |
+| `--scope SCOPE` | Filter by scope |
+| `--tag TAG` | Filter by tag |
+| `--status STATUS` | Filter by status |
+| `--expand` | Include 1-hop graph neighbors in results |
+| `--reading-order` | Sort by topological dependency |
+| `--top N` | Max results (default: 10) |
+| `--rrf-k N` | RRF constant (default: 60) |
+| `--depth N` | Max hops for `--related` (default: 1) |
+| `--json` | Force JSON output |
+| `--table` | Force table output |
+| `--project-dir PATH` | Override project root |
+
+Output is JSON when piped (agents get structured data automatically), tables when interactive.
+
+## Configuration
+
+Optional `.doc-index.yaml` in project root:
+
+```yaml
+scan:
+  - docs/
+  - guides/
+exclude:
+  - .git/
+  - node_modules/
+  - vendor/
+embedding_model: BAAI/bge-small-en-v1.5
+```
+
+When `scan` is omitted, the entire project is scanned. The [default exclusion list](tools/doc_index/config.py) covers 20+ common noise directories.
+
+## Rules
+
+Claude Code rules that install to `~/.claude/rules/`:
 
 | Rule | Purpose |
 |------|---------|
+| `doc-search.md` | Teaches agents to use `--query`, `--context`, `--discover` |
 | `markdown-formatting.md` | Obsidian.md compatibility (tables, callouts, frontmatter) |
 | `test-driven-debugging.md` | Debug by writing tests, not guessing |
 | `code-comments.md` | WHY not WHAT — meaningful, self-contained comments |
 
-### CLAUDE.md Template (`templates/`)
+## Setup Script
 
-A parameterized project configuration template covering:
-- Git commit conventions
-- Documentation structure and rules
-- Workspace ownership boundaries
-- Module lifecycle (prototype → stabilise → graduate)
-- Scope tags for agent discovery
+`setup.sh` handles full project scaffolding:
 
-### Doc Index Tool (`tools/doc_index`)
-
-Zero-dependency frontmatter indexer with hybrid fusion search:
-
-```bash
-# Build index (+ TF-IDF, optionally embeddings)
-python -m tools.doc_index --build
-python -m tools.doc_index --build --embeddings
-
-# Hybrid fusion search — combines fuzzy + TF-IDF + embeddings via RRF
-python -m tools.doc_index --query "how does authentication work" --json
-
-# Filter by scope, tag, or status
-python -m tools.doc_index --scope auth --tag jwt
-python -m tools.doc_index --status draft --json
-```
-
-`--query` is the recommended search mode for agents — it automatically fuses all available retrieval signals, removing the guesswork of choosing between fuzzy and semantic search. See [Doc Index Reference](docs/guides/doc-index.md) for the full guide.
-
-### Setup Script (`setup.sh`)
-
-Idempotent scaffolding that:
 1. Creates `docs/` directory structure
 2. Generates `CLAUDE.md` from template
 3. Symlinks rules to `~/.claude/rules/`
@@ -82,15 +198,7 @@ Idempotent scaffolding that:
 5. Creates `.doc-index.yaml` config
 6. Updates `.gitignore`
 
-Safe to re-run — skips existing files, warns on conflicts.
-
-## Philosophy
-
-- **Docs are first-class** — agents need discoverable knowledge, not just code
-- **Ownership prevents conflicts** — clear boundaries between shared and owned areas
-- **Frontmatter enables tooling** — structured metadata makes docs queryable
-- **Rules are universal** — coding principles that improve any codebase
-- **Zero dependencies** — pure stdlib Python, drops into any 3.10+ project without installs
+Idempotent — safe to re-run. Use `--yes --no-rules` for existing projects.
 
 ## Documentation
 
